@@ -59,35 +59,39 @@ func extractMessageId(ms []*gmail.Message) []*MessageId {
 }
 
 // Do executes the ListMessagesCall and stores the retrieved messages in the
-// calling GmailStats instance.
+// MessageIds field of the calling GmailStats instance.
 func (l *ListMessagesCall) Do() (*GmailStats, error) {
-	const numMessages = 500
+	const messageBatchSize = 500
 	messages := make([]*MessageId, 0)
-	remainingResults := l.maxResults
+	resultsCountDown := l.maxResults
 
 	minResults := func(rr *int64, limit int64) int64 {
 		return int64(math.Min(float64(*rr), float64(limit)))
 	}
 
-	call := l.gs.service.Users.Messages.List(defaultGmailUser).MaxResults(minResults(&remainingResults, numMessages)).Q(l.q)
+	extractMessageToken := func(r *gmail.ListMessagesResponse) ([]*MessageId, string) {
+		return extractMessageId(r.Messages), r.NextPageToken
+	}
+
+	call := l.gs.service.Users.Messages.List(defaultGmailUser).MaxResults(minResults(&resultsCountDown, messageBatchSize)).Q(l.q)
 	r0, err := call.Do()
 	if err != nil {
 		return l.gs, err
 	}
-	ms := extractMessageId(r0.Messages)
-	nextToken := r0.NextPageToken
+	ms, nextToken := extractMessageToken(r0)
 	messages = append(messages, ms...)
-	remainingResults = remainingResults - int64(len(ms))
+	resultsCountDown -= int64(len(ms))
 
+	// Continue to get more results when the number of retrieved messages is less
+	// than maxResults and there's still more to get.
 	for int64(len(messages)) < l.maxResults && nextToken != "" {
 		r1, err := call.PageToken(nextToken).Do()
 		if err != nil {
 			return l.gs, err
 		}
-		ms = extractMessageId(r1.Messages)
-		nextToken = r1.NextPageToken
+		ms, nextToken = extractMessageToken(r1)
 		messages = append(messages, ms...)
-		remainingResults = remainingResults - int64(len(ms))
+		resultsCountDown -= int64(len(ms))
 	}
 
 	l.gs.MessageIds = messages
