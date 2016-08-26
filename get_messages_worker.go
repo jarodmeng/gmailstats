@@ -29,20 +29,20 @@ func newMessageWorker(gs *GmailStats, team chan *messageWorker, out chan *Messag
 	return mw
 }
 
-func (mw *messageWorker) Start(verbose bool) {
+func (mw *messageWorker) start(verbose bool) {
 	go func() {
 		mw.team <- mw
 		for work := range mw.workQueue {
-			mw.ProcessMessage(work, verbose)
+			mw.processMessage(work, verbose)
 			mw.team <- mw
 		}
 		mw.finish.Done()
 	}()
 }
 
-// ProcessMessage gets detailed information about a message and packages them into
+// processMessage gets detailed information about a message and packages them into
 // a Message object
-func (mw *messageWorker) ProcessMessage(messageWork *messageWork, verbose bool) {
+func (mw *messageWorker) processMessage(messageWork *messageWork, verbose bool) {
 	mr, _ := mw.gs.service.Users.Messages.Get(defaultGmailUser, messageWork.Id).Do()
 
 	messageId := MessageId{
@@ -112,11 +112,11 @@ func newMessageWorkerManager(gs *GmailStats, n int, wq chan *messageWork, out ch
 	return messageWorkerManager
 }
 
-func (mwm *messageWorkerManager) Start(verbose bool) {
+func (mwm *messageWorkerManager) start(verbose bool) {
 	for i := 0; i < mwm.nWorkers; i++ {
 		mwm.finish.Add(1)
 		messageWorker := newMessageWorker(mwm.gs, mwm.team, mwm.output, mwm.finish)
-		messageWorker.Start(verbose)
+		messageWorker.start(verbose)
 	}
 
 	go func() {
