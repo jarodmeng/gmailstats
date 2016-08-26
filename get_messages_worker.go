@@ -29,20 +29,18 @@ func newMessageWorker(gs *GmailStats, team chan *messageWorker, out chan *Messag
 	return mw
 }
 
-func (mw *messageWorker) start(verbose bool) {
+func (mw *messageWorker) start() {
 	go func() {
 		mw.team <- mw
 		for work := range mw.workQueue {
-			mw.processMessage(work, verbose)
+			mw.processMessage(work)
 			mw.team <- mw
 		}
 		mw.finish.Done()
 	}()
 }
 
-// processMessage gets detailed information about a message and packages them into
-// a Message object
-func (mw *messageWorker) processMessage(messageWork *messageWork, verbose bool) {
+func (mw *messageWorker) processMessage(messageWork *messageWork) {
 	mr, _ := mw.gs.service.Users.Messages.Get(defaultGmailUser, messageWork.Id).Do()
 
 	messageId := MessageId{
@@ -83,10 +81,7 @@ func (mw *messageWorker) processMessage(messageWork *messageWork, verbose bool) 
 		Text:   messageText,
 	}
 
-	if verbose {
-		log.Printf("Processed request of message id %s.\n", messageWork.Id)
-	}
-
+	log.Printf("Processed request of message id %s.\n", messageWork.Id)
 	mw.output <- message
 }
 
@@ -112,11 +107,11 @@ func newMessageWorkerManager(gs *GmailStats, n int, wq chan *messageWork, out ch
 	return messageWorkerManager
 }
 
-func (mwm *messageWorkerManager) start(verbose bool) {
+func (mwm *messageWorkerManager) start() {
 	for i := 0; i < mwm.nWorkers; i++ {
 		mwm.finish.Add(1)
 		messageWorker := newMessageWorker(mwm.gs, mwm.team, mwm.output, mwm.finish)
-		messageWorker.start(verbose)
+		messageWorker.start()
 	}
 
 	go func() {

@@ -23,14 +23,14 @@ func (gs *GmailStats) createMessageWorkQueue() chan *messageWork {
 	return messageWorkQueue
 }
 
-func (gs *GmailStats) GetMessages(verbose bool) *GmailStats {
+func (gs *GmailStats) GetMessages() *GmailStats {
 	nMessageWorkers := runtime.NumCPU()
 	messageOutput := make(chan *Message)
 
 	messageWorkQueue := gs.createMessageWorkQueue()
 
 	messageWorkerManager := newMessageWorkerManager(gs, nMessageWorkers, messageWorkQueue, messageOutput)
-	messageWorkerManager.start(verbose)
+	messageWorkerManager.start()
 
 	gs.Messages = make([]*Message, 0)
 	for m := range messageOutput {
