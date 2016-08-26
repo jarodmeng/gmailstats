@@ -44,3 +44,7 @@ type GmailStats struct {
 	MessageIds []*MessageId
 	Messages   []*Message
 }
+
+type MessageWorkRequest struct {
+	Id string
+}
