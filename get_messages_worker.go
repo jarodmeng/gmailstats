@@ -5,31 +5,31 @@ import (
 	"sync"
 )
 
-type MessageWork struct {
+type messageWork struct {
 	Id string
 }
 
-type MessageWorker struct {
+type messageWorker struct {
 	gs        *GmailStats
-	team      chan *MessageWorker
+	team      chan *messageWorker
 	output    chan *Message
 	finish    *sync.WaitGroup
-	workQueue chan *MessageWork
+	workQueue chan *messageWork
 }
 
-func NewMessageWorker(gs *GmailStats, team chan *MessageWorker, out chan *Message, finish *sync.WaitGroup) *MessageWorker {
-	mw := &MessageWorker{
+func newMessageWorker(gs *GmailStats, team chan *messageWorker, out chan *Message, finish *sync.WaitGroup) *messageWorker {
+	mw := &messageWorker{
 		gs:        gs,
 		team:      team,
 		output:    out,
 		finish:    finish,
-		workQueue: make(chan *MessageWork),
+		workQueue: make(chan *messageWork),
 	}
 
 	return mw
 }
 
-func (mw *MessageWorker) Start(verbose bool) {
+func (mw *messageWorker) Start(verbose bool) {
 	go func() {
 		mw.team <- mw
 		for work := range mw.workQueue {
@@ -42,7 +42,7 @@ func (mw *MessageWorker) Start(verbose bool) {
 
 // ProcessMessage gets detailed information about a message and packages them into
 // a Message object
-func (mw *MessageWorker) ProcessMessage(messageWork *MessageWork, verbose bool) {
+func (mw *messageWorker) ProcessMessage(messageWork *messageWork, verbose bool) {
 	mr, _ := mw.gs.service.Users.Messages.Get(defaultGmailUser, messageWork.Id).Do()
 
 	messageId := MessageId{
@@ -90,20 +90,20 @@ func (mw *MessageWorker) ProcessMessage(messageWork *MessageWork, verbose bool) 
 	mw.output <- message
 }
 
-type MessageWorkerManager struct {
+type messageWorkerManager struct {
 	gs        *GmailStats
 	nWorkers  int
-	team      chan *MessageWorker
+	team      chan *messageWorker
 	finish    *sync.WaitGroup
-	workQueue chan *MessageWork
+	workQueue chan *messageWork
 	output    chan *Message
 }
 
-func NewMessageWorkerManager(gs *GmailStats, n int, wq chan *MessageWork, out chan *Message) *MessageWorkerManager {
-	messageWorkerManager := &MessageWorkerManager{
+func newMessageWorkerManager(gs *GmailStats, n int, wq chan *messageWork, out chan *Message) *messageWorkerManager {
+	messageWorkerManager := &messageWorkerManager{
 		gs:        gs,
 		nWorkers:  n,
-		team:      make(chan *MessageWorker, n),
+		team:      make(chan *messageWorker, n),
 		finish:    &sync.WaitGroup{},
 		workQueue: wq,
 		output:    out,
@@ -112,10 +112,10 @@ func NewMessageWorkerManager(gs *GmailStats, n int, wq chan *MessageWork, out ch
 	return messageWorkerManager
 }
 
-func (mwm *MessageWorkerManager) Start(verbose bool) {
+func (mwm *messageWorkerManager) Start(verbose bool) {
 	for i := 0; i < mwm.nWorkers; i++ {
 		mwm.finish.Add(1)
-		messageWorker := NewMessageWorker(mwm.gs, mwm.team, mwm.output, mwm.finish)
+		messageWorker := newMessageWorker(mwm.gs, mwm.team, mwm.output, mwm.finish)
 		messageWorker.Start(verbose)
 	}
 

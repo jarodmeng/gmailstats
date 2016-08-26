@@ -5,16 +5,16 @@ import (
 	"runtime"
 )
 
-// Create a work queue consisting of MessageWork using the MessageIds
+// Create a work queue consisting of messageWork using the MessageIds
 // field of the calling GmailStats instance.
-func (gs *GmailStats) createMessageWorkQueue() chan *MessageWork {
+func (gs *GmailStats) createMessageWorkQueue() chan *messageWork {
 	if len(gs.MessageIds) == 0 {
 		log.Fatalln("MessageIds field cannot be empty.")
 	}
 
-	messageWorkQueue := make(chan *MessageWork, len(gs.MessageIds))
+	messageWorkQueue := make(chan *messageWork, len(gs.MessageIds))
 	for _, mid := range gs.MessageIds {
-		messageWork := &MessageWork{
+		messageWork := &messageWork{
 			Id: mid.MessageId,
 		}
 		messageWorkQueue <- messageWork
@@ -29,7 +29,7 @@ func (gs *GmailStats) GetMessages(verbose bool) *GmailStats {
 
 	messageWorkQueue := gs.createMessageWorkQueue()
 
-	messageWorkerManager := NewMessageWorkerManager(gs, nMessageWorkers, messageWorkQueue, messageOutput)
+	messageWorkerManager := newMessageWorkerManager(gs, nMessageWorkers, messageWorkQueue, messageOutput)
 	messageWorkerManager.Start(verbose)
 
 	gs.Messages = make([]*Message, 0)
