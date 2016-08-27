@@ -6,9 +6,13 @@ import (
 	"strings"
 )
 
+const (
+	emailRawRegex       = `(?:^|(?:^.+ < *)|^<)([[:alnum:]-+_@.]+)(?:$|(?:>$))`
+	mailingListRawRegex = `^list ([[:alnum:]-@.]+);.+`
+)
+
 func matchEmail(s string) string {
-	const emailRawRegex = `(?:^|(?:^.+ < *)|^<)([[:alnum:]-+_@.]+)(?:$|(?:>$))`
-	emailRegex, _ := regexp.Compile(emailRawRegex)
+	emailRegex := regexp.MustCompile(emailRawRegex)
 	email := emailRegex.FindStringSubmatch(s)
 	if len(email) < 2 {
 		log.Printf("Cannot parse this email: %s.\n", s)
@@ -28,12 +32,11 @@ func matchAllEmails(s string) []string {
 }
 
 func matchMailingList(s string) string {
-	const mlRawRegex = `^list ([[:alnum:]-@.]+);.+`
-	mlRegex := regexp.MustCompile(mlRawRegex)
-	ml := mlRegex.FindStringSubmatch(s)
-	if len(ml) < 2 {
+	mailingListRegex := regexp.MustCompile(mailingListRawRegex)
+	mailingList := mailingListRegex.FindStringSubmatch(s)
+	if len(mailingList) < 2 {
 		log.Printf("Cannot parse this mailing list: %s.\n", s)
 		return s
 	}
-	return ml[1]
+	return mailingList[1]
 }
