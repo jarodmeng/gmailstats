@@ -10,19 +10,13 @@ type messageWork struct {
 }
 
 type messageWorker struct {
-	gs        *GmailStats
-	team      chan *messageWorker
-	output    chan *Message
-	finish    *sync.WaitGroup
+	mwm       *messageWorkerManager
 	workQueue chan *messageWork
 }
 
 func (mwm *messageWorkerManager) newMessageWorker() *messageWorker {
 	mw := &messageWorker{
-		gs:        mwm.gs,
-		team:      mwm.team,
-		output:    mwm.output,
-		finish:    mwm.finish,
+		mwm:       mwm,
 		workQueue: make(chan *messageWork),
 	}
 
@@ -31,17 +25,18 @@ func (mwm *messageWorkerManager) newMessageWorker() *messageWorker {
 
 func (mw *messageWorker) start() {
 	go func() {
-		mw.team <- mw
+		mw.mwm.team <- mw // add worker itself to team
 		for work := range mw.workQueue {
-			mw.processMessage(work)
-			mw.team <- mw
+			mw.processMessage(work) // process received work
+			mw.mwm.team <- mw       // add worker itself back to team
 		}
-		mw.finish.Done()
+		// When work queue is completed, sign off the worker
+		mw.mwm.finish.Done()
 	}()
 }
 
-func (mw *messageWorker) processMessage(messageWork *messageWork) {
-	mr, _ := mw.gs.service.Users.Messages.Get(defaultGmailUser, messageWork.Id).Do()
+func (mw *messageWorker) processMessage(w *messageWork) {
+	mr, _ := mw.mwm.gs.service.Users.Messages.Get(defaultGmailUser, w.Id).Do()
 
 	messageId := MessageId{
 		MessageId: mr.Id,
@@ -81,17 +76,17 @@ func (mw *messageWorker) processMessage(messageWork *messageWork) {
 		Text:   messageText,
 	}
 
-	log.Printf("Processed request of message id %s.\n", messageWork.Id)
-	mw.output <- message
+	log.Printf("Processed request of message id %s.\n", w.Id)
+	mw.mwm.output <- message
 }
 
 type messageWorkerManager struct {
-	gs        *GmailStats
-	nWorkers  int
-	team      chan *messageWorker
-	finish    *sync.WaitGroup
-	workQueue chan *messageWork
-	output    chan *Message
+	gs        *GmailStats         // parent GmailStats instance
+	nWorkers  int                 // number of workers
+	team      chan *messageWorker // a team organized as a channel of workers
+	finish    *sync.WaitGroup     // worker registration and sign-off sheet
+	workQueue chan *messageWork   // input as a channel of work
+	output    chan *Message       // output as a channel of Message
 }
 
 func (gs *GmailStats) newMessageWorkerManager(n int, wq chan *messageWork, out chan *Message) *messageWorkerManager {
@@ -109,24 +104,27 @@ func (gs *GmailStats) newMessageWorkerManager(n int, wq chan *messageWork, out c
 
 func (mwm *messageWorkerManager) start() {
 	for i := 0; i < mwm.nWorkers; i++ {
-		mwm.finish.Add(1)
-		messageWorker := mwm.newMessageWorker()
-		messageWorker.start()
+		messageWorker := mwm.newMessageWorker() // create worker
+		messageWorker.start()                   // start the newly-created worker
+		mwm.finish.Add(1)                       // increment worker tracking
 	}
 
 	go func() {
+		// This loop exhausts the input work.
 		for work := range mwm.workQueue {
-			messageWorker := <-mwm.team
-			messageWorker.workQueue <- work
+			messageWorker := <-mwm.team     // get a worker
+			messageWorker.workQueue <- work // assign work to worker
 		}
+		// Once input work is done, close workers by closing workers's input queues.
 		for messageWorker := range mwm.team {
 			close(messageWorker.workQueue)
 		}
+		// Once all workers are closed, close output channel.
 		close(mwm.output)
 	}()
 
 	go func() {
-		mwm.finish.Wait()
+		mwm.finish.Wait() // wait for all workers to sign off
 		close(mwm.team)
 	}()
 }
