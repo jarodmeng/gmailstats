@@ -29,7 +29,7 @@ func (gs *GmailStats) GetMessages() *GmailStats {
 
 	messageWorkQueue := gs.createMessageWorkQueue()
 
-	messageWorkerManager := newMessageWorkerManager(gs, nMessageWorkers, messageWorkQueue, messageOutput)
+	messageWorkerManager := gs.newMessageWorkerManager(nMessageWorkers, messageWorkQueue, messageOutput)
 	messageWorkerManager.start()
 
 	gs.Messages = make([]*Message, 0)

@@ -17,12 +17,12 @@ type messageWorker struct {
 	workQueue chan *messageWork
 }
 
-func newMessageWorker(gs *GmailStats, team chan *messageWorker, out chan *Message, finish *sync.WaitGroup) *messageWorker {
+func (mwm *messageWorkerManager) newMessageWorker() *messageWorker {
 	mw := &messageWorker{
-		gs:        gs,
-		team:      team,
-		output:    out,
-		finish:    finish,
+		gs:        mwm.gs,
+		team:      mwm.team,
+		output:    mwm.output,
+		finish:    mwm.finish,
 		workQueue: make(chan *messageWork),
 	}
 
@@ -94,7 +94,7 @@ type messageWorkerManager struct {
 	output    chan *Message
 }
 
-func newMessageWorkerManager(gs *GmailStats, n int, wq chan *messageWork, out chan *Message) *messageWorkerManager {
+func (gs *GmailStats) newMessageWorkerManager(n int, wq chan *messageWork, out chan *Message) *messageWorkerManager {
 	messageWorkerManager := &messageWorkerManager{
 		gs:        gs,
 		nWorkers:  n,
@@ -110,7 +110,7 @@ func newMessageWorkerManager(gs *GmailStats, n int, wq chan *messageWork, out ch
 func (mwm *messageWorkerManager) start() {
 	for i := 0; i < mwm.nWorkers; i++ {
 		mwm.finish.Add(1)
-		messageWorker := newMessageWorker(mwm.gs, mwm.team, mwm.output, mwm.finish)
+		messageWorker := mwm.newMessageWorker()
 		messageWorker.start()
 	}
 
