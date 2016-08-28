@@ -6,6 +6,12 @@ import (
 	"runtime"
 )
 
+type GetMessagesCall struct {
+	gs     *GmailStats
+	append bool
+	write  bool
+}
+
 // Create a work queue consisting of messageWork using the MessageIds
 // field of the calling GmailStats instance.
 func (gs *GmailStats) createMessageWorkQueue() chan *messageWork {
@@ -24,35 +30,60 @@ func (gs *GmailStats) createMessageWorkQueue() chan *messageWork {
 	return messageWorkQueue
 }
 
-func (gs *GmailStats) GetMessages(write bool) *GmailStats {
+func (gs *GmailStats) GetMessages() *GetMessagesCall {
+	g := &GetMessagesCall{
+		gs:     gs,
+		append: false,
+		write:  false,
+	}
+
+	return g
+}
+
+func (g *GetMessagesCall) Append() *GetMessagesCall {
+	g.append = true
+	return g
+}
+
+func (g *GetMessagesCall) Write() *GetMessagesCall {
+	g.write = true
+	return g
+}
+
+func (g *GetMessagesCall) Do() *GmailStats {
 	nMessageWorkers := runtime.NumCPU()
 	// output channel
 	messageOutput := make(chan *Message)
 	// input channel
-	messageWorkQueue := gs.createMessageWorkQueue()
+	messageWorkQueue := g.gs.createMessageWorkQueue()
 
 	// Start a manager that takes in work input, organizes a worker pool and sends
 	// output to the output channel
-	messageWorkerManager := gs.newMessageWorkerManager(nMessageWorkers, messageWorkQueue, messageOutput)
+	messageWorkerManager := g.gs.newMessageWorkerManager(nMessageWorkers, messageWorkQueue, messageOutput)
 	messageWorkerManager.start()
 
 	// Move Message from output channel to the Messages field in GmailStats
-	gs.Messages = make([]*Message, 0)
-	if write {
-		if gs.MessagesFile == nil {
+	if !g.append {
+		g.gs.Messages = make([]*Message, 0)
+	}
+	if g.write {
+		if g.gs.MessagesFile == nil {
 			fmt.Println("No MessagesFile found. Use messages.json by default.")
-			gs.OpenMessagesFile("messages.json")
+			g.gs.OpenMessagesFile("messages.json")
 		}
-		defer gs.MessagesFile.Close()
+		defer func() {
+			g.gs.MessagesFile.Close()
+			fmt.Println("MessagesFile closed.")
+		}()
 	}
 	for m := range messageOutput {
-		gs.Messages = append(gs.Messages, m)
-		if write {
-			if err := m.writeJSONToFile(gs.MessagesFile); err != nil {
-				log.Fatalf("Unable to write JSON file: %v.\n", err)
+		g.gs.Messages = append(g.gs.Messages, m)
+		if g.write {
+			if err := m.writeJSONToFile(g.gs.MessagesFile); err != nil {
+				fmt.Printf("Unable to write JSON file: %v.\n", err)
 			}
 		}
 	}
 
-	return gs
+	return g.gs
 }
