@@ -4,6 +4,7 @@ package gmailstats
 
 import (
 	"log"
+	"os"
 
 	"github.com/jarodmeng/googleauth"
 	gmail "google.golang.org/api/gmail/v1"
@@ -38,4 +39,12 @@ func New() *GmailStats {
 	}
 
 	return gs
+}
+
+func (gs *GmailStats) OpenMessagesFile(filename string) {
+	f, err := os.OpenFile(filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatalf("Unable to open file: %v.\n", err)
+	}
+	gs.MessagesFile = f
 }

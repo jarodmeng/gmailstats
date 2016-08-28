@@ -1,6 +1,10 @@
 package gmailstats
 
-import gmail "google.golang.org/api/gmail/v1"
+import (
+	"os"
+
+	gmail "google.golang.org/api/gmail/v1"
+)
 
 type MessageId struct {
 	MessageId string `json:"messageid"`
@@ -26,14 +30,15 @@ type MessageTime struct {
 }
 
 type Message struct {
-	Id     MessageId     `json:"id"`
-	Time   MessageTime   `json:"time",omitempty`
-	Header MessageHeader `json:"header",omitempty`
-	Text   MessageText   `json:"text",omitempty`
+	Id     *MessageId     `json:"id"`
+	Time   *MessageTime   `json:"time",omitempty`
+	Header *MessageHeader `json:"header",omitempty`
+	Text   *MessageText   `json:"text",omitempty`
 }
 
 type GmailStats struct {
-	service    *gmail.Service
-	MessageIds []*MessageId
-	Messages   []*Message
+	service      *gmail.Service
+	MessageIds   []*MessageId
+	Messages     []*Message
+	MessagesFile *os.File
 }

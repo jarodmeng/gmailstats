@@ -1,7 +1,7 @@
 package gmailstats
 
 import (
-	"log"
+	"fmt"
 	"sync"
 )
 
@@ -11,12 +11,14 @@ type messageWork struct {
 
 type messageWorker struct {
 	mwm       *messageWorkerManager
+	id        int
 	workQueue chan *messageWork
 }
 
-func (mwm *messageWorkerManager) newMessageWorker() *messageWorker {
+func (mwm *messageWorkerManager) newMessageWorker(id int) *messageWorker {
 	mw := &messageWorker{
 		mwm:       mwm,
+		id:        id,
 		workQueue: make(chan *messageWork),
 	}
 
@@ -27,30 +29,41 @@ func (mw *messageWorker) start() {
 	go func() {
 		mw.mwm.team <- mw // add worker itself to team
 		for work := range mw.workQueue {
-			mw.processMessage(work) // process received work
-			mw.mwm.team <- mw       // add worker itself back to team
+			err := mw.processMessage(work) // process received work
+			if err != nil {
+				fmt.Printf("Error when processing message id %s: %v.\n", work.Id, err)
+				mw2 := <-mw.mwm.team
+				mw2.workQueue <- work
+			}
+			mw.mwm.team <- mw // add worker itself back to team
 		}
 		// When work queue is completed, sign off the worker
+		fmt.Printf("messageWorker %d signs off.\n", mw.id)
 		mw.mwm.finish.Done()
 	}()
 }
 
-func (mw *messageWorker) processMessage(w *messageWork) {
+func (mw *messageWorker) processMessage(w *messageWork) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
 	mr, _ := mw.mwm.gs.service.Users.Messages.Get(defaultGmailUser, w.Id).Do()
 
-	messageId := MessageId{
+	messageId := &MessageId{
 		MessageId: mr.Id,
 		ThreadId:  mr.ThreadId,
 	}
 
-	messageTime := MessageTime{
+	messageTime := &MessageTime{
 		Time: mr.InternalDate / 1000,
 	}
 
-	messageHeader := MessageHeader{}
-	messageText := MessageText{
+	messageHeader := &MessageHeader{}
+	messageText := &MessageText{
 		Snippet:  mr.Snippet,
-		BodyText: "test",
+		BodyText: "",
 	}
 	for _, h := range mr.Payload.Headers {
 		switch h.Name {
@@ -76,8 +89,10 @@ func (mw *messageWorker) processMessage(w *messageWork) {
 		Text:   messageText,
 	}
 
-	log.Printf("Processed request of message id %s.\n", w.Id)
+	fmt.Printf("Processed request of message id %s.\n", w.Id)
 	mw.mwm.output <- message
+
+	return nil
 }
 
 type messageWorkerManager struct {
@@ -104,9 +119,9 @@ func (gs *GmailStats) newMessageWorkerManager(n int, wq chan *messageWork, out c
 
 func (mwm *messageWorkerManager) start() {
 	for i := 0; i < mwm.nWorkers; i++ {
-		messageWorker := mwm.newMessageWorker() // create worker
-		messageWorker.start()                   // start the newly-created worker
-		mwm.finish.Add(1)                       // increment worker tracking
+		messageWorker := mwm.newMessageWorker(i) // create worker
+		messageWorker.start()                    // start the newly-created worker
+		mwm.finish.Add(1)                        // increment worker tracking
 	}
 
 	go func() {
