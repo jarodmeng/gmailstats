@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 type messageWork struct {
@@ -33,6 +34,7 @@ func (mw *messageWorker) start() {
 			err := mw.processMessage(work) // process received work
 			if err != nil {
 				fmt.Printf("Error when processing message id %s: %v.\n", work.Id, err)
+				time.Sleep(10 * time.Second)
 				mw2 := <-mw.mwm.team
 				mw2.workQueue <- work
 			}
