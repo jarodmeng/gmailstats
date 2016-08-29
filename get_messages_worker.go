@@ -34,6 +34,7 @@ func (mw *messageWorker) start() {
 			err := mw.processMessage(work) // process received work
 			if err != nil {
 				fmt.Printf("Error when processing message id %s: %v.\n", work.Id, err)
+				fmt.Printf("Worker %d is now sleeping for 10 seconds.\n", mw.id)
 				time.Sleep(10 * time.Second)
 				mw2 := <-mw.mwm.team
 				mw2.workQueue <- work
