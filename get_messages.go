@@ -3,7 +3,6 @@ package gmailstats
 import (
 	"fmt"
 	"log"
-	"runtime"
 )
 
 type GetMessagesCall struct {
@@ -50,8 +49,8 @@ func (g *GetMessagesCall) Write() *GetMessagesCall {
 	return g
 }
 
-func (g *GetMessagesCall) Do() *GmailStats {
-	nMessageWorkers := runtime.NumCPU()
+func (g *GetMessagesCall) Do(numCPU int) *GmailStats {
+	nMessageWorkers := numCPU
 	// output channel
 	messageOutput := make(chan *Message)
 	// input channel
