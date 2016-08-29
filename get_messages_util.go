@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	emailSplitRawRegex  = `(, |,|;)`
+	emailSplitRawRegex  = `(, *|;)`
 	emailRawRegex       = `(?:^|(?:^.+ *< *)|^<)([[:alnum:]-+_@.=%]+)(?:$|(?:>.*$))`
 	mailingListRawRegex = `^list ([[:alnum:]-+_@.]+);.+`
 )
