@@ -2,6 +2,7 @@ package gmailstats
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -66,18 +67,18 @@ func (mw *messageWorker) processMessage(w *messageWork) (err error) {
 		BodyText: "",
 	}
 	for _, h := range mr.Payload.Headers {
-		switch h.Name {
-		case "From":
+		switch strings.ToLower(h.Name) {
+		case "from":
 			messageHeader.FromEmail = matchEmail(h.Value)
-		case "To":
+		case "to":
 			messageHeader.ToEmails = matchAllEmails(h.Value)
-		case "Cc":
+		case "cc":
 			messageHeader.CcEmails = matchAllEmails(h.Value)
-		case "Bcc":
+		case "bcc":
 			messageHeader.BccEmails = matchAllEmails(h.Value)
-		case "Mailing-list":
+		case "mailing-list":
 			messageHeader.MailingList = matchMailingList(h.Value)
-		case "Subject":
+		case "subject":
 			messageText.Subject = h.Value
 		}
 	}

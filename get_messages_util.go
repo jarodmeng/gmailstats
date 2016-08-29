@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	emailRawRegex       = `(?:^|(?:^.+ < *)|^<)([[:alnum:]-+_@.]+)(?:$|(?:>$))`
+	emailSplitRawRegex  = `(, |,|;)`
+	emailRawRegex       = `(?:^|(?:^.+ *< *)|^<)([[:alnum:]-+_@.=%]+)(?:$|(?:>.*$))`
 	mailingListRawRegex = `^list ([[:alnum:]-+_@.]+);.+`
 )
 
@@ -20,14 +21,14 @@ func matchEmail(s string) string {
 		fmt.Printf("Cannot parse this email: %s.\n", s)
 		return s
 	}
-	return email[1]
+	return strings.ToLower(email[1])
 }
 
 func matchAllEmails(s string) []string {
 	out := make([]string, 0)
-	emailStrings := strings.Split(s, ", ")
+	emailStrings := regexp.MustCompile(emailSplitRawRegex).Split(s, -1)
 	for _, e := range emailStrings {
-		if e == "undisclosed-recipients:;" || e == "" || regexp.MustCompile(`^"[-\w |.]+$`).MatchString(e) {
+		if !strings.Contains(e, "@") {
 			continue
 		}
 		email := matchEmail(e)
@@ -43,7 +44,7 @@ func matchMailingList(s string) string {
 		fmt.Printf("Cannot parse this mailing list: %s.\n", s)
 		return s
 	}
-	return mailingList[1]
+	return strings.ToLower(mailingList[1])
 }
 
 func (m *Message) writeJSONToFile(f *os.File) error {
